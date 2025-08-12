@@ -13,6 +13,9 @@ interface IModule {
 
 const AdminModulePage = () => {
   const { id: courseId } = useParams();
+
+  console.log('course id', courseId)
+
   const [modules, setModules] = useState<IModule[]>([]);
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,6 +38,7 @@ const AdminModulePage = () => {
     setLoading(true);
     try {
       await axios.post('/modules', { courseId, title });
+      console.log('course id',courseId, title)
       setTitle('');
       fetchModules();
     } catch (err) {

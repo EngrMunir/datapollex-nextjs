@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: 'https://lms-backend-pi-ten.vercel.app/api',
+  baseURL: 'http://localhost:5000/api',
   withCredentials: true,
 });
 

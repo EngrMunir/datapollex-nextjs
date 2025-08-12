@@ -8,12 +8,14 @@ interface ILecture {
   _id: string;
   title: string;
   videoUrl: string;
+  lectureNumber: number;
   pdfNotes: string[];
 }
 
 const LectureManagementPage = () => {
   const { id: moduleId } = useParams();
   const [lectures, setLectures] = useState<ILecture[]>([]);
+  const [lectureNumber, setLectureNumber] = useState('');
   const [title, setTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [pdfNotes, setPdfNotes] = useState<string[]>([]);
@@ -42,11 +44,13 @@ const LectureManagementPage = () => {
         moduleId,
         title,
         videoUrl,
+        lectureNumber :Number(lectureNumber),
         pdfNotes,
       });
       setTitle('');
       setVideoUrl('');
       setPdfNotes([]);
+      setLectureNumber('')
       fetchLectures();
     } catch (err) {
       console.error('Add lecture error:', err);
@@ -77,6 +81,13 @@ const LectureManagementPage = () => {
       <h1 className="text-2xl font-bold mb-4">Manage Lectures</h1>
 
       <div className="mb-6 space-y-2">
+        <input
+          type="text"
+          placeholder="Lecture Number"
+          value={lectureNumber}
+          onChange={(e) => setLectureNumber(e.target.value)}
+          className="border px-4 py-2 rounded w-full"
+        />
         <input
           type="text"
           placeholder="Lecture Title"
