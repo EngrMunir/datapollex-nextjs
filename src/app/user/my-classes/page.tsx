@@ -7,10 +7,14 @@ import { useRouter } from 'next/navigation';
 
 interface ILecture {
   _id: string;
+  title: string;
+  videoUrl: string;
 }
 
 interface IModule {
   _id: string;
+  title: string;
+  moduleNumber: number;
   lectures: ILecture[];
 }
 
@@ -30,6 +34,7 @@ const MyClassesPage = () => {
     const fetchEnrolledCourses = async () => {
       try {
         const res = await axios.get('/enrollments');
+        console.log('courses', res.data.data); // Verifying the fetched courses with modules and lectures
         setCourses(res.data.data || []);
       } catch (error) {
         console.error('Failed to fetch enrolled courses', error);
@@ -47,9 +52,6 @@ const MyClassesPage = () => {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">My Classes</h1>
       {courses.map((course) => {
-        const hasLecture = course.modules?.some((mod) => mod.lectures?.length > 0);
-
-
         return (
           <div key={course._id} className="mb-6 border rounded-lg p-4 shadow bg-white">
             <div className="flex items-center gap-4">
@@ -65,12 +67,7 @@ const MyClassesPage = () => {
               </div>
               <button
                 onClick={() => router.push(`/user/learn/${course._id}`)}
-                className={`px-4 py-2 rounded text-sm text-white ${
-                  hasLecture
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-gray-400 cursor-not-allowed'
-                }`}
-                disabled={!hasLecture}
+                className="px-4 py-2 rounded text-sm text-white bg-blue-600 hover:bg-blue-700"
               >
                 Continue
               </button>

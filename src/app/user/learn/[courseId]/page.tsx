@@ -4,10 +4,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import axios from '@/utils/api';
 import dynamic from 'next/dynamic';
-import { FaLock, FaUnlock } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
-// Lazy-load ReactPlayer to avoid SSR issues, and fix types manually
+// Lazy-load ReactPlayer to avoid SSR issues
 import type { ReactPlayerProps } from 'react-player';
 
 const ReactPlayer = dynamic(() => import('react-player/lazy') as unknown as Promise<{ default: React.FC<ReactPlayerProps> }>, {
@@ -38,67 +37,46 @@ const CoursePlayerPage = () => {
   const { courseId } = useParams();
   const [course, setCourse] = useState<ICourseDetail | null>(null);
   const [currentLecture, setCurrentLecture] = useState<ILecture | null>(null);
-  const [completed, setCompleted] = useState<string[]>([]);
-  const [expandedModules, setExpandedModules] = useState<string[]>([]);
+  const [expandedModules, setExpandedModules] = useState<string[]>([]); // Modules that are expanded
+  const [loading, setLoading] = useState(true); // Loading state
 
+  // Fetch course details
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data } = await axios.get(`/course/detail/${courseId}`);
+        const { data } = await axios.get(`/course/${courseId}`);
+        console.log('single course data', data.data);
         setCourse(data.data);
 
-        const allLectureIds = data.data.modules.flatMap((mod: IModule) =>
-          mod.lectures.map((lec: ILecture) => lec._id)
-        );
-
-        const res = await axios.post('/progress/list', {
-          lectureIds: allLectureIds,
-        });
-        setCompleted(res.data.data || []);
-
+        // Set the first lecture as the current lecture if available
         const firstLecture = data.data.modules?.[0]?.lectures?.[0];
         if (firstLecture) setCurrentLecture(firstLecture);
       } catch (error) {
         console.error('Error fetching course data:', error);
+        toast.error('Failed to load course data');
+      } finally {
+        setLoading(false);
       }
     };
 
     if (courseId) fetchData();
   }, [courseId]);
 
-  const isUnlocked = (lectureId: string) => {
-    if (!course) return false;
-
-    const allLectures = course.modules.flatMap(mod => mod.lectures);
-    const index = allLectures.findIndex(l => l._id === lectureId);
-
-    if (completed.length === 0) {
-      return index === 0; // Unlock only first lecture
-    }
-
-    const completedCount = allLectures.findIndex(
-      l => l._id === completed[completed.length - 1]
-    );
-
-    return index <= completedCount + 1;
-  };
-
-  const handleComplete = async (lectureId: string) => {
-    try {
-      await axios.post('/progress/complete', { lectureId });
-      setCompleted(prev => [...prev, lectureId]);
-      toast.success('Marked as completed');
-    } catch (err) {
-      console.error('Error marking as completed:', err);
-      toast.error('Failed to mark as completed');
-    }
-  };
-
+  // Toggle module expansion
   const toggleModule = (id: string) => {
     setExpandedModules(prev =>
       prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
     );
   };
+
+  // Handle lecture click to update the current lecture and video
+  const handleLectureClick = (lecture: ILecture) => {
+    setCurrentLecture(lecture);
+  };
+
+  if (loading) return <div className="p-6">Loading...</div>;
+
+  if (!course) return <div>Course not found</div>;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 min-h-screen">
@@ -107,20 +85,26 @@ const CoursePlayerPage = () => {
         {currentLecture ? (
           <>
             <h2 className="text-white mb-2 text-lg">{currentLecture.title}</h2>
-            <div className="aspect-w-16 aspect-h-9">
+            <div className="relative pb-[56.25%]"> {/* 16:9 Aspect Ratio */}
               <ReactPlayer
-                src={currentLecture.videoUrl}
+                url={currentLecture.videoUrl}
                 controls
-                width="100%"
-                height="100%"
+                width="100%"  // Ensure the player takes 100% width of the container
+                height="100%" // Set height to 100% to maintain aspect ratio
+                style={{ position: 'absolute', top: 0, left: 0 }}
+                config={{
+                  youtube: {
+                    playerVars: {
+                      modestbranding: 1,
+                      rel: 0,
+                      showinfo: 0,
+                      autoplay: 1,
+                      origin: 'http://localhost:3000',
+                    },
+                  },
+                }}
               />
             </div>
-            <button
-              onClick={() => handleComplete(currentLecture._id)}
-              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              Mark as Completed
-            </button>
           </>
         ) : (
           <p className="text-white">No lecture selected</p>
@@ -130,7 +114,7 @@ const CoursePlayerPage = () => {
       {/* Right: Modules */}
       <div className="bg-gray-100 p-4 overflow-y-auto">
         <h3 className="font-bold text-xl mb-4">Modules</h3>
-        {course?.modules.map(module => (
+        {course.modules.map(module => (
           <div key={module._id} className="mb-4 border rounded bg-white">
             <div
               onClick={() => toggleModule(module._id)}
@@ -140,24 +124,19 @@ const CoursePlayerPage = () => {
             </div>
             {expandedModules.includes(module._id) && (
               <div className="p-2">
-                {module.lectures.map(lecture => {
-                  const unlocked = isUnlocked(lecture._id);
-                  return (
+                {module.lectures.length > 0 ? (
+                  module.lectures.map((lecture) => (
                     <button
                       key={lecture._id}
-                      className={`flex justify-between items-center w-full px-3 py-2 my-1 rounded text-left ${
-                        unlocked
-                          ? 'bg-green-100 hover:bg-green-200'
-                          : 'bg-gray-200 cursor-not-allowed opacity-60'
-                      }`}
-                      onClick={() => unlocked && setCurrentLecture(lecture)}
-                      disabled={!unlocked}
+                      className="flex justify-between items-center w-full px-3 py-2 my-1 rounded text-left bg-green-100 hover:bg-green-200"
+                      onClick={() => handleLectureClick(lecture)}  // Update the current lecture
                     >
                       <span>{lecture.title}</span>
-                      <span>{unlocked ? <FaUnlock /> : <FaLock />}</span>
                     </button>
-                  );
-                })}
+                  ))
+                ) : (
+                  <p>No lectures available</p>
+                )}
               </div>
             )}
           </div>

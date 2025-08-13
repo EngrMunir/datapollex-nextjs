@@ -92,7 +92,7 @@ const AdminModulePage = () => {
               </div>
               <div className="flex gap-2">
                 <Link
-                  href={`/admin/modules/${mod._id}/lectures`}
+                   href={`/admin/modules/${mod._id}/lectures?courseId=${courseId}`}
                   className="text-blue-600 underline"
                 >
                   Lectures

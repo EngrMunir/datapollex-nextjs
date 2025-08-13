@@ -59,7 +59,7 @@ const LoginForm = () => {
   };
 
   const fillUserCredentials = () => {
-    setForm({ email: 'user@gmail.com', password: 'Admin123' });
+    setForm({ email: 'munir@gmail.com', password: 'Admin123' });
   };
 
   return (

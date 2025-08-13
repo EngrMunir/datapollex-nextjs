@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import axios from '@/utils/api';
 
 interface ILecture {
@@ -14,6 +14,9 @@ interface ILecture {
 
 const LectureManagementPage = () => {
   const { id: moduleId } = useParams();
+   const sp = useSearchParams();
+  const courseId = sp?.get('courseId');
+  console.log('course id', courseId);
   const [lectures, setLectures] = useState<ILecture[]>([]);
   const [lectureNumber, setLectureNumber] = useState('');
   const [title, setTitle] = useState('');
@@ -42,6 +45,7 @@ const LectureManagementPage = () => {
     try {
       await axios.post('/lectures', {
         moduleId,
+        courseId,
         title,
         videoUrl,
         lectureNumber :Number(lectureNumber),
