@@ -14,9 +14,10 @@ interface ILecture {
 
 const LectureManagementPage = () => {
   const { id: moduleId } = useParams();
-   const sp = useSearchParams();
+  const sp = useSearchParams();
   const courseId = sp?.get('courseId');
   console.log('course id', courseId);
+  
   const [lectures, setLectures] = useState<ILecture[]>([]);
   const [lectureNumber, setLectureNumber] = useState('');
   const [title, setTitle] = useState('');
@@ -24,21 +25,23 @@ const LectureManagementPage = () => {
   const [pdfNotes, setPdfNotes] = useState<string[]>([]);
   const [pdfNoteInput, setPdfNoteInput] = useState('');
   const [loading, setLoading] = useState(false);
-
- const fetchLectures = useCallback(async () => {
-  try {
-    const res = await axios.get(`/lectures/${moduleId}`);
-    setLectures(res.data.data || []);
-  } catch (err) {
-    console.error('Failed to fetch lectures:', err);
-  }
-}, [moduleId]);
-
+  
+  const [editingLecture, setEditingLecture] = useState<ILecture | null>(null); // State for editing lecture
+  
+  const fetchLectures = useCallback(async () => {
+    try {
+      const res = await axios.get(`/lectures/${moduleId}`);
+      setLectures(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch lectures:', err);
+    }
+  }, [moduleId]);
 
   useEffect(() => {
     fetchLectures();
   }, [fetchLectures]);
 
+  // Handle adding new lecture
   const handleAddLecture = async () => {
     if (!title || !videoUrl) return;
     setLoading(true);
@@ -48,13 +51,13 @@ const LectureManagementPage = () => {
         courseId,
         title,
         videoUrl,
-        lectureNumber :Number(lectureNumber),
+        lectureNumber: Number(lectureNumber),
         pdfNotes,
       });
       setTitle('');
       setVideoUrl('');
       setPdfNotes([]);
-      setLectureNumber('')
+      setLectureNumber('');
       fetchLectures();
     } catch (err) {
       console.error('Add lecture error:', err);
@@ -63,6 +66,31 @@ const LectureManagementPage = () => {
     }
   };
 
+  // Handle updating an existing lecture
+  const handleUpdateLecture = async () => {
+    if (!editingLecture || !title || !videoUrl) return;
+    setLoading(true);
+    try {
+      await axios.patch(`/lectures/${editingLecture._id}`, {
+        title,
+        videoUrl,
+        lectureNumber: Number(lectureNumber),
+        pdfNotes,
+      });
+      setEditingLecture(null); // Reset after successful update
+      setTitle('');
+      setVideoUrl('');
+      setPdfNotes([]);
+      setLectureNumber('');
+      fetchLectures();
+    } catch (err) {
+      console.error('Update lecture error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle delete action
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure?')) return;
     try {
@@ -80,9 +108,18 @@ const LectureManagementPage = () => {
     }
   };
 
+  // Handle editing a lecture
+  const handleEditLecture = (lecture: ILecture) => {
+    setEditingLecture(lecture);
+    setTitle(lecture.title);
+    setVideoUrl(lecture.videoUrl);
+    setLectureNumber(String(lecture.lectureNumber));
+    setPdfNotes(lecture.pdfNotes);
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Manage Lectures</h1>
+      <h1 className="text-2xl font-bold mb-4">{editingLecture ? 'Edit Lecture' : 'Add Lecture'}</h1>
 
       <div className="mb-6 space-y-2">
         <input
@@ -131,11 +168,11 @@ const LectureManagementPage = () => {
         )}
 
         <button
-          onClick={handleAddLecture}
+          onClick={editingLecture ? handleUpdateLecture : handleAddLecture}
           disabled={loading}
           className="mt-2 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? 'Adding...' : 'Add Lecture'}
+          {loading ? 'Saving...' : editingLecture ? 'Update Lecture' : 'Add Lecture'}
         </button>
       </div>
 
@@ -161,6 +198,12 @@ const LectureManagementPage = () => {
                 className="mt-2 text-red-500"
               >
                 Delete
+              </button>
+              <button
+                onClick={() => handleEditLecture(lec)}
+                className="mt-2 text-blue-500 ml-2"
+              >
+                Edit
               </button>
             </li>
           ))}

@@ -4,13 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import axios from '@/utils/api';
 import toast from 'react-hot-toast';
-
-interface ILecture {
-  _id: string;
-  title: string;
-  videoUrl: string;
-  pdfNotes: string[];
-}
+import { ILecture } from '@/types';
 
 const LecturePage = () => {
   const params = useParams();
@@ -29,6 +23,7 @@ const LecturePage = () => {
         setLecture(res.data.data);
       } catch (err) {
         console.error('Failed to fetch lecture:', err);
+        toast.error('Failed to fetch lecture');
       } finally {
         setLoading(false);
       }
@@ -70,6 +65,7 @@ const LecturePage = () => {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">{lecture.title}</h1>
 
+      {/* Video Player */}
       <div className="aspect-video mb-6">
         <iframe
           src={lecture.videoUrl}
@@ -80,9 +76,10 @@ const LecturePage = () => {
         ></iframe>
       </div>
 
+      {/* PDF Notes Section */}
       <div className="mb-6">
         <h2 className="font-semibold text-lg mb-2">PDF Notes</h2>
-        {lecture.pdfNotes.length === 0 ? (
+        {!lecture.pdfNotes || lecture.pdfNotes.length === 0 ? (
           <p>No notes available.</p>
         ) : (
           <ul className="list-disc pl-5">
@@ -102,6 +99,7 @@ const LecturePage = () => {
         )}
       </div>
 
+      {/* Mark as Completed Button */}
       <button
         onClick={handleMarkComplete}
         className={`px-6 py-2 font-semibold rounded ${

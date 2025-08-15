@@ -7,7 +7,8 @@ import { usePathname } from 'next/navigation';
 const menuItems = [
   { name: 'Dashboard', href: '/admin/dashboard' },
   { name: 'Courses', href: '/admin/courses' },
-  { name: 'Users', href: '/admin/users' }, // optional
+  { name: 'Users', href: '/admin/users' },
+  { name: 'All Lecture', href: '/admin/lectures' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -5,52 +5,38 @@ import { useParams } from 'next/navigation';
 import axios from '@/utils/api';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
-
-// Lazy-load ReactPlayer to avoid SSR issues
 import type { ReactPlayerProps } from 'react-player';
+import { ICourseDetail, ILecture, IModule } from '@/types';
 
-const ReactPlayer = dynamic(() => import('react-player/lazy') as unknown as Promise<{ default: React.FC<ReactPlayerProps> }>, {
-  ssr: false,
-});
-
-interface ILecture {
-  _id: string;
-  title: string;
-  videoUrl: string;
-}
-
-interface IModule {
-  _id: string;
-  title: string;
-  moduleNumber: number;
-  lectures: ILecture[];
-}
-
-interface ICourseDetail {
-  _id: string;
-  title: string;
-  thumbnail: string;
-  modules: IModule[];
-}
+const ReactPlayer = dynamic(
+  () =>
+    import('react-player/lazy') as unknown as Promise<{
+      default: React.FC<ReactPlayerProps>;
+    }>,
+  { ssr: false }
+);
 
 const CoursePlayerPage = () => {
   const { courseId } = useParams();
   const [course, setCourse] = useState<ICourseDetail | null>(null);
   const [currentLecture, setCurrentLecture] = useState<ILecture | null>(null);
-  const [expandedModules, setExpandedModules] = useState<string[]>([]); // Modules that are expanded
-  const [loading, setLoading] = useState(true); // Loading state
+  const [expandedModules, setExpandedModules] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [unlockedLectures, setUnlockedLectures] = useState<string[]>([]);
 
-  // Fetch course details
   useEffect(() => {
     const fetchData = async () => {
       try {
         const { data } = await axios.get(`/course/${courseId}`);
-        console.log('single course data', data.data);
         setCourse(data.data);
 
-        // Set the first lecture as the current lecture if available
         const firstLecture = data.data.modules?.[0]?.lectures?.[0];
         if (firstLecture) setCurrentLecture(firstLecture);
+
+        const firstLectures = data.data.modules
+          .map((module: IModule) => module.lectures[0]?._id)
+          .filter(Boolean) as string[];
+        setUnlockedLectures(firstLectures);
       } catch (error) {
         console.error('Error fetching course data:', error);
         toast.error('Failed to load course data');
@@ -62,35 +48,109 @@ const CoursePlayerPage = () => {
     if (courseId) fetchData();
   }, [courseId]);
 
-  // Toggle module expansion
   const toggleModule = (id: string) => {
     setExpandedModules(prev =>
       prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
     );
   };
 
-  // Handle lecture click to update the current lecture and video
   const handleLectureClick = (lecture: ILecture) => {
     setCurrentLecture(lecture);
+    if (!unlockedLectures.includes(lecture._id)) {
+      setUnlockedLectures(prev => [...prev, lecture._id]);
+    }
+  };
+
+  const handleNextLecture = () => {
+    if (currentLecture && course) {
+      const currentModule = course.modules.find(module =>
+        module.lectures.some(lec => lec._id === currentLecture._id)
+      );
+      if (!currentModule) return;
+
+      const currentLectureIndex = currentModule.lectures.findIndex(
+        lec => lec._id === currentLecture._id
+      );
+      if (currentLectureIndex < currentModule.lectures.length - 1) {
+        const nextLecture = currentModule.lectures[currentLectureIndex + 1];
+        setCurrentLecture(nextLecture);
+        if (!unlockedLectures.includes(nextLecture._id))
+          setUnlockedLectures(prev => [...prev, nextLecture._id]);
+      }
+    }
+  };
+
+  const handlePreviousLecture = () => {
+    if (currentLecture && course) {
+      const currentModule = course.modules.find(module =>
+        module.lectures.some(lec => lec._id === currentLecture._id)
+      );
+      if (!currentModule) return;
+
+      const currentLectureIndex = currentModule.lectures.findIndex(
+        lec => lec._id === currentLecture._id
+      );
+      if (currentLectureIndex > 0) {
+        const previousLecture = currentModule.lectures[currentLectureIndex - 1];
+        setCurrentLecture(previousLecture);
+      }
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    console.log('current lecture',currentLecture)
+    if (!currentLecture?.pdfNotes || currentLecture.pdfNotes.length === 0) {
+      toast.error('No PDF available for this lecture');
+      return;
+    }
+
+    const pdfUrl = currentLecture.pdfNotes[0]; // first PDF
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.target = '_blank';
+    link.download = `${currentLecture.title}.pdf`;
+    link.click();
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
-
   if (!course) return <div>Course not found</div>;
 
+  // ===== Module Progress Calculation =====
+  const runningModule = currentLecture
+    ? course.modules.find(module =>
+        module.lectures.some(lec => lec._id === currentLecture._id)
+      )
+    : null;
+
+  const currentLectureIndex = runningModule
+    ? runningModule.lectures.findIndex(lec => lec._id === currentLecture!._id) + 1
+    : 0;
+
+  const totalLectures = runningModule ? runningModule.lectures.length : 0;
+  const progressPercent = totalLectures
+    ? (currentLectureIndex / totalLectures) * 100
+    : 0;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 min-h-screen">
+    <div className="flex flex-col md:flex-row min-h-screen">
       {/* Left: Video Player */}
-      <div className="md:col-span-2 bg-black p-4">
+      <div className="md:w-2/3 bg-[#010313] p-4 overflow-y-auto">
         {currentLecture ? (
           <>
-            <h2 className="text-white mb-2 text-lg">{currentLecture.title}</h2>
-            <div className="relative pb-[56.25%]"> {/* 16:9 Aspect Ratio */}
+            {/* Module number - Lecture number + title */}
+            {runningModule && (
+              <div className="text-white font-semibold mb-2 text-lg">
+                Module {runningModule.moduleNumber} - {currentLectureIndex} |{' '}
+                {currentLecture.title}
+              </div>
+            )}
+
+            <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
               <ReactPlayer
                 url={currentLecture.videoUrl}
                 controls
-                width="100%"  // Ensure the player takes 100% width of the container
-                height="100%" // Set height to 100% to maintain aspect ratio
+                width="100%"
+                height="100%"
                 style={{ position: 'absolute', top: 0, left: 0 }}
                 config={{
                   youtube: {
@@ -99,11 +159,34 @@ const CoursePlayerPage = () => {
                       rel: 0,
                       showinfo: 0,
                       autoplay: 1,
-                      origin: 'http://localhost:3000',
                     },
                   },
                 }}
               />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-between items-center mt-4">
+              <button
+                onClick={handleDownloadPDF}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+              >
+                Download PDF
+              </button>
+              <div className="flex gap-4">
+                <button
+                  onClick={handlePreviousLecture}
+                  className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={handleNextLecture}
+                  className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </>
         ) : (
@@ -111,8 +194,26 @@ const CoursePlayerPage = () => {
         )}
       </div>
 
-      {/* Right: Modules */}
-      <div className="bg-gray-100 p-4 overflow-y-auto">
+      {/* Right: Module List + Progress */}
+      <div className="md:w-1/3 bg-gray-100 p-4 overflow-y-auto max-h-screen pb-4">
+        {/* Progress Bar */}
+        {runningModule && (
+          <div className="mb-4">
+            <div className="flex justify-between mb-1 text-gray-800 font-medium">
+              <span>Running Module: {runningModule.moduleNumber}</span>
+              <span>
+                {currentLectureIndex}/{totalLectures}
+              </span>
+            </div>
+            <div className="w-full h-3 bg-gray-300 rounded">
+              <div
+                className="h-3 bg-[#0dd053] rounded"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
         <h3 className="font-bold text-xl mb-4">Modules</h3>
         {course.modules.map(module => (
           <div key={module._id} className="mb-4 border rounded bg-white">
@@ -125,11 +226,16 @@ const CoursePlayerPage = () => {
             {expandedModules.includes(module._id) && (
               <div className="p-2">
                 {module.lectures.length > 0 ? (
-                  module.lectures.map((lecture) => (
+                  module.lectures.map(lecture => (
                     <button
                       key={lecture._id}
-                      className="flex justify-between items-center w-full px-3 py-2 my-1 rounded text-left bg-green-100 hover:bg-green-200"
-                      onClick={() => handleLectureClick(lecture)}  // Update the current lecture
+                      className={`flex justify-between items-center w-full px-3 py-2 my-1 rounded text-left ${
+                        unlockedLectures.includes(lecture._id)
+                          ? 'bg-green-100 hover:bg-green-200'
+                          : 'bg-gray-300 cursor-not-allowed'
+                      }`}
+                      onClick={() => handleLectureClick(lecture)}
+                      disabled={!unlockedLectures.includes(lecture._id)}
                     >
                       <span>{lecture.title}</span>
                     </button>

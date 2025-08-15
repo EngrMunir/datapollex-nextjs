@@ -1,87 +1,88 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axiosInstance from '@/utils/api';
 import { isAxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import { jwtDecode } from 'jwt-decode';
+import { TDecodedToken, TLoginValues } from '@/types';
+import { useForm } from 'react-hook-form';
 
-type DecodedToken = {
-  email: string;
-  role: 'admin' | 'user';
-  iat?: number;
-  exp?: number;
-};
 
 const LoginForm = () => {
-  const [form, setForm] = useState({ email: '', password: '' });
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<TLoginValues>({
+    defaultValues: { email: '', password: '' },
+  });
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-
+  const onSubmit = async (values: TLoginValues) => {
     try {
-      const res = await axiosInstance.post('/auth/login', form);
-      const accessToken = res.data.data.accessToken;
+      const res = await axiosInstance.post('/auth/login', values);
+      const accessToken = res?.data?.data?.accessToken;
 
       localStorage.setItem('accessToken', accessToken);
 
-      const decoded = jwtDecode<DecodedToken>(accessToken);
+      const decoded = jwtDecode<TDecodedToken>(accessToken);
       const role = decoded?.role;
 
       toast.success('Login successful!');
-
-      if (role === 'admin') {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/user/courses');
-      }
+      if (role === 'admin') router.push('/admin/dashboard');
+      else router.push('/user/courses');
     } catch (err) {
       if (isAxiosError(err)) {
         toast.error(err.response?.data?.message || 'Invalid credentials');
       } else {
         toast.error('Something went wrong');
       }
-    } finally {
-      setLoading(false);
     }
   };
 
   const fillAdminCredentials = () => {
-    setForm({ email: 'admin@gmail.com', password: 'Admin123' });
+    setValue('email', 'admin@gmail.com', { shouldDirty: true });
+    setValue('password', 'Admin123', { shouldDirty: true });
   };
 
   const fillUserCredentials = () => {
-    setForm({ email: 'munir@gmail.com', password: 'Admin123' });
+    setValue('email', 'munir@gmail.com', { shouldDirty: true });
+    setValue('password', 'Admin123', { shouldDirty: true });
   };
 
   return (
-    <form onSubmit={handleLogin} className="space-y-4">
-      <input
-        name="email"
-        type="email"
-        placeholder="Email"
-        value={form.email}
-        onChange={handleChange}
-        required
-        className="w-full border px-4 py-2 rounded"
-      />
-      <input
-        name="password"
-        type="password"
-        placeholder="Password"
-        value={form.password}
-        onChange={handleChange}
-        required
-        className="w-full border px-4 py-2 rounded"
-      />
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div>
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full border px-4 py-2 rounded"
+          {...register('email', {
+            required: 'Email is required',
+            pattern: {
+              value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+              message: 'Enter a valid email',
+            },
+          })}
+        />
+        {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
+      </div>
+
+      <div>
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full border px-4 py-2 rounded"
+          {...register('password', {
+            required: 'Password is required',
+            minLength: { value: 6, message: 'At least 6 characters' },
+          })}
+        />
+        {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>}
+      </div>
 
       <div className="flex justify-between gap-4">
         <button
@@ -102,12 +103,12 @@ const LoginForm = () => {
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={isSubmitting}
         className={`w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 ${
-          loading ? 'opacity-50 cursor-not-allowed' : ''
+          isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
         }`}
       >
-        {loading ? 'Logging in...' : 'Login'}
+        {isSubmitting ? 'Logging in...' : 'Login'}
       </button>
     </form>
   );

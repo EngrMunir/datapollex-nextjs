@@ -1,62 +1,56 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Modal from './Modal';
 import axiosInstance from '@/utils/api';
 import { isAxiosError } from 'axios';
+import { ICourse, ICourseFormProps } from '@/types';
+import { useForm } from 'react-hook-form';
 
-interface ICourse {
-  _id?: string;
-  title: string;
-  thumbnail: string;
-  price: number;
-  description: string;
-}
-
-interface ICourseFormProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  initialData?: ICourse;
-}
 
 const CourseFormModal = ({ isOpen, onClose, onSuccess, initialData }: ICourseFormProps) => {
-  const [title, setTitle] = useState('');
-  const [thumbnail, setThumbnail] = useState('');
-  const [price, setPrice] = useState<number | ''>('');
-  const [description, setDescription] = useState('');
-  const [loading, setLoading] = useState(false);
-
   const isEditMode = Boolean(initialData?._id);
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ICourse>({
+    defaultValues: {
+      title: '',
+      thumbnail: '',
+      price: 0,
+      description: '',
+    },
+  });
+
+  // Prefill form on edit
   useEffect(() => {
     if (initialData) {
-      setTitle(initialData.title || '');
-      setThumbnail(initialData.thumbnail || '');
-      setPrice(initialData.price ?? '');
-      setDescription(initialData.description || '');
+      reset({
+        title: initialData.title ?? '',
+        thumbnail: initialData.thumbnail ?? '',
+        price: Number(initialData.price ?? 0),
+        description: initialData.description ?? '',
+      });
     } else {
-      setTitle('');
-      setThumbnail('');
-      setPrice('');
-      setDescription('');
+      reset({
+        title: '',
+        thumbnail: '',
+        price: 0,
+        description: '',
+      });
     }
-  }, [initialData]);
+  }, [initialData, reset, isOpen]);
 
-  const handleSubmit = async () => {
-    if (!title || !thumbnail || !description || price === '') {
-      alert('All fields are required');
-      return;
-    }
-
-    setLoading(true);
-
+  const onSubmit = async (values: ICourse) => {
     try {
       const payload: ICourse = {
-        title,
-        thumbnail,
-        price: Number(price),
-        description,
+        title: values.title,
+        thumbnail: values.thumbnail,
+        price: Number(values.price),
+        description: values.description,
       };
 
       if (isEditMode && initialData?._id) {
@@ -69,61 +63,70 @@ const CourseFormModal = ({ isOpen, onClose, onSuccess, initialData }: ICourseFor
       onClose();
     } catch (error) {
       if (isAxiosError(error)) {
-        console.error('Failed to submit course:', error);
         alert(error.response?.data?.message || 'Something went wrong');
       } else {
         alert('Something went wrong');
       }
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isEditMode ? 'Edit Course' : 'Add New Course'}>
-      <div className="space-y-4">
-        <input
-          type="text"
-          placeholder="Course Title"
-          value={title}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
-          className="w-full p-2 border rounded"
-          required
-        />
-        <input
-          type="text"
-          placeholder="Thumbnail URL"
-          value={thumbnail}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setThumbnail(e.target.value)}
-          className="w-full p-2 border rounded"
-          required
-        />
-        <input
-          type="number"
-          placeholder="Price"
-          value={price}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setPrice(e.target.value === '' ? '' : Number(e.target.value))
-          }
-          className="w-full p-2 border rounded"
-          required
-        />
-        <textarea
-          placeholder="Description"
-          value={description}
-          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-          className="w-full p-2 border rounded resize-none"
-          rows={4}
-          required
-        />
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div>
+          <input
+            type="text"
+            placeholder="Course Title"
+            className="w-full p-2 border rounded"
+            {...register('title', { required: 'Title is required' })}
+          />
+          {errors.title && <p className="text-red-600 text-sm">{errors.title.message}</p>}
+        </div>
+
+        <div>
+          <input
+            type="text"
+            placeholder="Thumbnail URL"
+            className="w-full p-2 border rounded"
+            {...register('thumbnail', { required: 'Thumbnail is required' })}
+          />
+          {errors.thumbnail && <p className="text-red-600 text-sm">{errors.thumbnail.message}</p>}
+        </div>
+
+        <div>
+          <input
+            type="number"
+            placeholder="Price"
+            className="w-full p-2 border rounded"
+            {...register('price', {
+              required: 'Price is required',
+              valueAsNumber: true,
+              min: { value: 0, message: 'Price cannot be negative' },
+            })}
+          />
+          {errors.price && <p className="text-red-600 text-sm">{errors.price.message}</p>}
+        </div>
+
+        <div>
+          <textarea
+            placeholder="Description"
+            rows={4}
+            className="w-full p-2 border rounded resize-none"
+            {...register('description', { required: 'Description is required' })}
+          />
+          {errors.description && (
+            <p className="text-red-600 text-sm">{errors.description.message}</p>
+          )}
+        </div>
+
         <button
-          onClick={handleSubmit}
-          disabled={loading}
+          type="submit"
+          disabled={isSubmitting}
           className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-60"
         >
-          {loading ? 'Submitting...' : isEditMode ? 'Update Course' : 'Create Course'}
+          {isSubmitting ? 'Submitting...' : isEditMode ? 'Update Course' : 'Create Course'}
         </button>
-      </div>
+      </form>
     </Modal>
   );
 };

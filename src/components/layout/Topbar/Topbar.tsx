@@ -7,7 +7,7 @@ const Topbar = () => {
 
   return (
     <div className="flex justify-between items-center p-4 bg-gray-100">
-      <p>Welcome</p>
+      <p className="text-2xl font-semibold">R@dium Coaching Center</p>
     <Link href="/">  
       <button className="bg-red-500 text-white px-4 py-1 rounded">
           Logout
