@@ -28,6 +28,7 @@ const CoursePlayerPage = () => {
     const fetchData = async () => {
       try {
         const { data } = await axios.get(`/course/${courseId}`);
+        console.log('video data',data.data)
         setCourse(data.data);
 
         const firstLecture = data.data.modules?.[0]?.lectures?.[0];

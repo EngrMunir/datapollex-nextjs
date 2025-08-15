@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { TRegisterValues } from '@/types';
+import { isAxiosError } from 'axios';
 
+type ApiError = { message?: string };
 
 const RegisterForm = () => {
   const router = useRouter();
@@ -23,8 +25,11 @@ const RegisterForm = () => {
       await axios.post('/auth/register', values);
       toast.success('Registration successful!');
       router.push('/login');
-    } catch (err: any) {
-      const message = err?.response?.data?.message || 'Registration failed';
+    } catch (err: unknown) {
+      let message = 'Registration failed';
+      if (isAxiosError<ApiError>(err)) {
+        message = err.response?.data?.message ?? message;
+      }
       toast.error(message);
     }
   };
@@ -37,7 +42,10 @@ const RegisterForm = () => {
           type="text"
           placeholder="Full Name"
           className="w-full border px-4 py-2 rounded"
-          {...register('name', { required: 'Name is required', minLength: { value: 2, message: 'At least 2 characters' } })}
+          {...register('name', {
+            required: 'Name is required',
+            minLength: { value: 2, message: 'At least 2 characters' },
+          })}
         />
         {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>}
       </div>

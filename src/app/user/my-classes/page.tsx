@@ -34,7 +34,7 @@ const MyClassesPage = () => {
     const fetchEnrolledCourses = async () => {
       try {
         const res = await axios.get('/enrollments');
-        console.log('courses', res.data.data); // Verifying the fetched courses with modules and lectures
+       
         setCourses(res.data.data || []);
       } catch (error) {
         console.error('Failed to fetch enrolled courses', error);
