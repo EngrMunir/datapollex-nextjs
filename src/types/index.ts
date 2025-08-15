@@ -1,9 +1,17 @@
 export interface ILecture {
   _id: string;
   title: string;
+  lectureNumber?: number;
   videoUrl: string;
-  pdfNotes?: string[];
+  pdfNotes: string[];
 }
+
+export type ILectureFormValues = {
+  lectureNumber: string;              
+  title: string;
+  videoUrl: string;
+  pdfNotes: { url: string }[];        
+};
 
 export interface IModule {
   _id: string;
